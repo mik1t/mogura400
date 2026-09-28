@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>400穴もぐらたたき</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&family=Mochiy+Pop+One&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --grass-a:#5FA532; --grass-b:#67AE39;
+    --soil:#7A4B2A; --soil-d:#5A341B; --soil-l:#8E5C36;
+    --ink:#2B1A0E; --cream:#FFF6D8; --cream-d:#D9BE82;
+    --sun:#FFC83D; --sun-d:#C98E12; --danger:#E2483D;
+    --board:min(92vw, calc(100vh - 150px), 760px);
+    --pop:'Mochiy Pop One','Hiragino Maru Gothic ProN','Yu Gothic',sans-serif;
+    --body:'M PLUS Rounded 1c','Hiragino Maru Gothic ProN','Yu Gothic',sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    background:repeating-linear-gradient(135deg,var(--grass-a) 0 22px,var(--grass-b) 22px 44px);
+    font-family:var(--body); font-size:16px; color:var(--ink);
+    display:flex; flex-direction:column; align-items:center;
+    padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);
+    user-select:none; -webkit-user-select:none;
+    -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+  }
+
+  /* ---------- ヘッダー ---------- */
+  header{width:var(--board); margin:14px 0 10px; display:flex; flex-direction:column; gap:8px}
+  .row{display:flex; justify-content:space-between; align-items:flex-end; gap:12px}
+  h1{font-family:var(--pop); font-weight:400; font-size:clamp(18px,3.2vw,26px); margin:0; color:var(--cream);
+     text-shadow:0 3px 0 var(--soil-d)}
+  .stats{display:flex; gap:16px; align-items:flex-end}
+  .stat{display:flex; flex-direction:column; align-items:flex-end; color:var(--cream); text-shadow:0 2px 0 var(--soil-d)}
+  .stat small{font-size:16px; font-weight:800; opacity:.9}
+  .stat b{font-family:var(--pop); font-weight:400; font-size:clamp(24px,4.5vw,36px); line-height:1; font-variant-numeric:tabular-nums}
+  .icon-btn{background:var(--cream); border:0; border-radius:12px; width:44px; height:44px; font-size:20px; cursor:pointer;
+            box-shadow:0 4px 0 var(--cream-d)}
+  .icon-btn:active{transform:translateY(3px); box-shadow:0 1px 0 var(--cream-d)}
+  .timebar{height:14px; border-radius:99px; background:var(--soil-d); overflow:hidden; box-shadow:inset 0 2px 0 rgba(0,0,0,.25)}
+  .timebar i{display:block; height:100%; width:100%; background:var(--sun); border-radius:99px; transition:background .2s}
+  .timebar.hurry i{background:var(--danger)}
+
+  /* ---------- 盤面 ---------- */
+  .stage{position:relative; width:var(--board)}
+  .board{
+    width:100%; aspect-ratio:1;
+    display:grid; grid-template-columns:repeat(20,1fr); grid-template-rows:repeat(20,1fr);
+    gap:clamp(1px,.3vw,3px); padding:clamp(6px,1.4vw,12px);
+    background:
+      radial-gradient(circle at 20% 30%,rgba(255,255,255,.05) 0 2px,transparent 3px) 0 0/18px 18px,
+      var(--soil);
+    border-radius:18px;
+    box-shadow:0 8px 0 var(--soil-d), inset 0 0 0 3px var(--soil-l);
+    cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%94%A8%3C/text%3E%3C/svg%3E") 8 8, pointer;
+  }
+  .board.shake{animation:shake .35s}
+  @keyframes shake{
+    0%,100%{transform:translate(0,0)} 20%{transform:translate(-8px,3px)} 40%{transform:translate(7px,-4px)}
+    60%{transform:translate(-5px,2px)} 80%{transform:translate(4px,-1px)}
+  }
+  .flash{position:absolute; inset:0; border-radius:18px; background:var(--danger); opacity:0; pointer-events:none; z-index:15}
+  .flash.on{animation:flash .4s}
+  @keyframes flash{0%{opacity:.45}100%{opacity:0}}
+
+  .hole{position:relative}
+  .hole::before{
+    content:''; position:absolute; left:6%; right:6%; bottom:12%; height:48%; border-radius:50%;
+    background:radial-gradient(ellipse at 50% 35%,#120a04 55%,#3a2412 100%);
+    box-shadow:0 1px 0 rgba(255,255,255,.14);
+  }
+
+  /* ---------- モグラ・爆弾 ---------- */
+  .critter{
+    position:absolute; left:50%; bottom:20%; width:170%; aspect-ratio:1; z-index:3;
+    transform:translate(-50%,0) scale(0); transform-origin:50% 100%;
+    transition:transform .16s cubic-bezier(.3,1.6,.5,1);
+    pointer-events:none;
+  }
+  .critter.up{transform:translate(-50%,0) scale(1); pointer-events:auto}
+  .critter.hit.up{transform:translate(-50%,0) scale(1.15,.75)}
+  .critter svg{width:100%; height:100%; display:block; filter:drop-shadow(0 2px 0 rgba(0,0,0,.35))}
+  .critter .ko{display:none}
+  .critter.hit .ko{display:inline}
+  .critter.hit .eyes{display:none}
+  .critter.bad svg{animation:wobble .5s ease-in-out infinite alternate}
+  @keyframes wobble{from{transform:rotate(-8deg)}to{transform:rotate(8deg)}}
+
+  .pop{
+    position:absolute; z-index:12; pointer-events:none; white-space:nowrap;
+    font-family:var(--pop); font-size:clamp(16px,2.6vw,24px); color:#fff;
+    text-shadow:0 2px 0 var(--ink),2px 0 0 var(--ink),-2px 0 0 var(--ink),0 -2px 0 var(--ink);
+    transform:translate(-50%,-50%); animation:rise .7s ease-out forwards;
+  }
+  .pop.minus{color:#FFD0CC}
+  @keyframes rise{from{opacity:1; margin-top:0}to{opacity:0; margin-top:-40px}}
+
+  /* ---------- オーバーレイ ---------- */
+  .overlay{position:absolute; inset:0; z-index:20; display:grid; place-items:center;
+           background:rgba(43,26,14,.55); border-radius:18px; padding:12px}
+  .overlay[hidden]{display:none}
+  .card{background:var(--cream); border-radius:22px; padding:clamp(18px,3vw,28px); width:min(440px,100%);
+        text-align:center; box-shadow:0 6px 0 var(--cream-d)}
+  .card h2{font-family:var(--pop); font-weight:400; font-size:clamp(24px,4vw,32px); margin:0 0 12px}
+  .legend{display:flex; justify-content:center; gap:20px; margin:0 0 14px}
+  .legend div{display:flex; align-items:center; gap:6px; font-weight:800; font-size:18px}
+  .legend svg{width:44px; height:44px}
+  .bubble{position:relative; background:#fff; border-radius:16px; padding:12px 14px; margin:0 0 16px;
+          text-align:left; font-size:16px; line-height:1.6; border:2px solid var(--cream-d)}
+  .bubble b{display:block; font-size:16px; color:var(--soil)}
+  .big{font-family:var(--pop); font-size:clamp(48px,9vw,72px); line-height:1.1; margin:4px 0}
+  .sub{display:flex; justify-content:center; gap:18px; margin:0 0 14px; font-size:16px; font-weight:800}
+  .best{color:var(--soil); font-weight:800; margin:0 0 12px; font-size:16px}
+  .go{font-family:var(--pop); font-size:22px; color:var(--ink); background:var(--sun); border:0; border-radius:16px;
+      padding:14px 36px; cursor:pointer; box-shadow:0 6px 0 var(--sun-d)}
+  .go:active{transform:translateY(4px); box-shadow:0 2px 0 var(--sun-d)}
+  .go:focus-visible,.icon-btn:focus-visible{outline:3px solid #fff; outline-offset:3px}
+  .count{font-family:var(--pop); font-size:clamp(80px,18vw,160px); color:var(--cream);
+         text-shadow:0 6px 0 var(--soil-d); animation:pulse .8s ease-out}
+  @keyframes pulse{from{transform:scale(1.6); opacity:0}to{transform:scale(1); opacity:1}}
+
+  @media (prefers-reduced-motion:reduce){
+    .board.shake,.critter.bad svg,.count{animation:none}
+    .critter{transition:none}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="row">
+    <h1>400穴もぐらたたき</h1>
+    <div class="stats">
+      <div class="stat"><small>スコア</small><b id="score">0</b></div>
+      <div class="stat"><small>のこり</small><b id="time">30.0</b></div>
+      <button class="icon-btn" id="mute" aria-label="音のオン・オフ">🔊</button>
+    </div>
+  </div>
+  <div class="timebar" id="timebar"><i id="bar"></i></div>
+</header>
+
+<div class="stage">
+  <div class="board" id="board"></div>
+  <div class="flash" id="flash"></div>
+
+  <div class="overlay" id="startOv">
+    <div class="card">
+      <h2>400穴もぐらたたき</h2>
+      <div class="legend">
+        <div><svg viewBox="0 0 100 100" id="legMole"></svg>+10</div>
+        <div><svg viewBox="0 0 100 100" id="legBomb"></svg>−30</div>
+      </div>
+      <div class="bubble"><b>エリオット</b>穴は400個、モグラは同時に3匹まで。制限時間は30秒ね。爆弾は叩いちゃダメだから。…僕はちゃんと忠告したよ？</div>
+      <button class="go" id="startBtn">スタート</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="countOv" hidden><div class="count" id="countNum">3</div></div>
+
+  <div class="overlay" id="resultOv" hidden>
+    <div class="card">
+      <h2>おしまい！</h2>
+      <div class="big" id="finalScore">0</div>
+      <div class="sub"><span>モグラ <span id="rHits">0</span>匹</span><span>爆弾 <span id="rBad">0</span>回</span></div>
+      <p class="best" id="best"></p>
+      <div class="bubble"><b>エリオット</b><span id="comment"></span></div>
+      <button class="go" id="againBtn">もう一回</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const N = 20, MAX_UP = 3, GAME_MS = 30000;
+  const BAD_RATE = 0.18, MOLE_PT = 10, BAD_PT = -30;
+  const BEST_KEY = 'mogura400-best';
+
+  const MOLE_SVG = `
+    <svg viewBox="0 0 100 100">
+      <ellipse cx="50" cy="62" rx="36" ry="38" fill="#9A6440"/>
+      <ellipse cx="50" cy="76" rx="22" ry="17" fill="#D9A77C"/>
+      <ellipse cx="30" cy="30" rx="7" ry="6" fill="#6E4329"/>
+      <ellipse cx="70" cy="30" rx="7" ry="6" fill="#6E4329"/>
+      <g class="eyes">
+        <circle cx="38" cy="52" r="5" fill="#2B1A0E"/><circle cx="62" cy="52" r="5" fill="#2B1A0E"/>
+        <circle cx="39.6" cy="50.4" r="1.7" fill="#fff"/><circle cx="63.6" cy="50.4" r="1.7" fill="#fff"/>
+      </g>
+      <g class="ko" stroke="#2B1A0E" stroke-width="3.5" stroke-linecap="round">
+        <path d="M33 47l10 10M43 47l-10 10M57 47l10 10M67 47l-10 10"/>
+      </g>
+      <circle cx="30" cy="63" r="5" fill="#F48FA0" opacity=".55"/>
+      <circle cx="70" cy="63" r="5" fill="#F48FA0" opacity=".55"/>
+      <ellipse cx="50" cy="64" rx="8" ry="6" fill="#F48FA0"/>
+      <g stroke="#4A2A15" stroke-width="1.6" stroke-linecap="round">
+        <path d="M40 68l-14 -3M40 71l-14 3M60 68l14 -3M60 71l14 3"/>
+      </g>
+    </svg>`;
+
+  const BOMB_SVG = `
+    <svg viewBox="0 0 100 100">
+      <circle cx="50" cy="60" r="34" fill="#E2483D" opacity=".28"/>
+      <circle cx="50" cy="62" r="28" fill="#2D2D35"/>
+      <rect x="42" y="28" width="16" height="10" rx="3" fill="#55555F"/>
+      <path d="M50 28 Q56 14 68 16" stroke="#8B6B3E" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <circle cx="70" cy="15" r="7" fill="#FFC83D"/>
+      <circle cx="70" cy="15" r="3.5" fill="#fff"/>
+      <ellipse cx="39" cy="50" rx="7" ry="4.5" fill="#fff" opacity=".35" transform="rotate(-35 39 50)"/>
+      <g class="eyes" fill="#fff">
+        <path d="M37 62l9 3-9 3z"/><path d="M63 62l-9 3 9 3z"/>
+      </g>
+      <g class="ko" stroke="#fff" stroke-width="3" stroke-linecap="round">
+        <path d="M36 59l8 8M44 59l-8 8M56 59l8 8M64 59l-8 8"/>
+      </g>
+    </svg>`;
+
+  const $ = id => document.getElementById(id);
+  const board = $('board');
+  const holes = [];
+  for (let i = 0; i < N * N; i++) {
+    const h = document.createElement('div');
+    h.className = 'hole';
+    h.dataset.i = i;
+    board.appendChild(h);
+    holes.push(h);
+  }
+  $('legMole').outerHTML = MOLE_SVG.replace('<svg', '<svg style="width:44px;height:44px"');
+  $('legBomb').outerHTML = BOMB_SVG.replace('<svg', '<svg style="width:44px;height:44px"');
+
+  /* ---------- サウンド ---------- */
+  let ac = null, muted = false;
+  function tone(freq, dur, type = 'square', vol = .06, slideTo) {
+    if (!ac || muted) return;
+    const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g).connect(ac.destination);
+    o.start(t); o.stop(t + dur);
+  }
+  const sfx = {
+    hit: () => { tone(900, .09, 'square', .05, 500); },
+    bad: () => { tone(160, .4, 'sawtooth', .09, 40); },
+    tick: () => { tone(660, .08, 'triangle', .07); },
+    go: () => { tone(1040, .18, 'triangle', .08); },
+    end: () => { tone(784, .12, 'triangle', .07); setTimeout(() => tone(523, .25, 'triangle', .07), 130); }
+  };
+  $('mute').addEventListener('click', () => {
+    muted = !muted;
+    $('mute').textContent = muted ? '🔇' : '🔊';
+  });
+
+  /* ---------- ゲーム状態 ---------- */
+  let state = 'idle', score = 0, hits = 0, badHits = 0;
+  let startT = 0, nextSpawn = 0;
+  const active = new Map(); // holeIndex -> {type, until, el}
+
+  function setScore(v) { score = Math.max(0, v); $('score').textContent = score; }
+
+  function spawn(now) {
+    const free = [];
+    for (let i = 0; i < holes.length; i++) if (!active.has(i) && holes[i].childElementCount === 0) free.push(i);
+    if (!free.length) return;
+    const i = free[Math.random() * free.length | 0];
+    const p = Math.min(1, (now - startT) / GAME_MS);
+    const type = Math.random() < BAD_RATE ? 'bad' : 'mole';
+    const stay = (type === 'bad' ? 1800 : 1500) - 650 * p;
+    const el = document.createElement('div');
+    el.className = 'critter ' + type;
+    el.innerHTML = type === 'bad' ? BOMB_SVG : MOLE_SVG;
+    holes[i].appendChild(el);
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('up')));
+    active.set(i, { type, until: now + stay, el });
+  }
+
+  function hide(i) {
+    const a = active.get(i);
+    if (!a) return;
+    active.delete(i);
+    a.el.classList.remove('up');
+    setTimeout(() => a.el.remove(), 220);
+  }
+
+  function popText(e, text, minus) {
+    const r = document.querySelector('.stage').getBoundingClientRect();
+    const d = document.createElement('div');
+    d.className = 'pop' + (minus ? ' minus' : '');
+    d.textContent = text;
+    d.style.left = (e.clientX - r.left) + 'px';
+    d.style.top = (e.clientY - r.top) + 'px';
+    document.querySelector('.stage').appendChild(d);
+    setTimeout(() => d.remove(), 700);
+  }
+
+  function whack(i, a, e) {
+    active.delete(i);
+    a.el.classList.add('hit');
+    setTimeout(() => a.el.classList.remove('up'), 160);
+    setTimeout(() => a.el.remove(), 400);
+    if (a.type === 'mole') {
+      hits++; setScore(score + MOLE_PT); sfx.hit();
+      popText(e, '+' + MOLE_PT);
+    } else {
+      badHits++; setScore(score + BAD_PT); sfx.bad();
+      popText(e, String(BAD_PT).replace('-', '−'), true);
+      board.classList.remove('shake'); void board.offsetWidth; board.classList.add('shake');
+      const f = $('flash'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
+    }
+  }
+
+  board.addEventListener('pointerdown', e => {
+    if (state !== 'play') return;
+    e.preventDefault();
+    const c = e.target.closest('.critter.up');
+    const h = c ? c.parentElement : e.target.closest('.hole');
+    if (!h) return;
+    const i = +h.dataset.i;
+    const a = active.get(i);
+    if (a) whack(i, a, e);
+  });
+
+  function hud(left) {
+    $('time').textContent = (left / 1000).toFixed(1);
+    $('bar').style.width = (left / GAME_MS * 100) + '%';
+    $('timebar').classList.toggle('hurry', left <= 5000);
+  }
+
+  function loop(now) {
+    if (state !== 'play') return;
+    const left = Math.max(0, GAME_MS - (now - startT));
+    for (const [i, a] of active) if (now >= a.until) hide(i);
+    if (active.size < MAX_UP && now >= nextSpawn) {
+      spawn(now);
+      const p = (now - startT) / GAME_MS;
+      nextSpawn = now + (520 - 280 * p) * (0.5 + Math.random());
+    }
+    hud(left);
+    if (left <= 0) return finish();
+    requestAnimationFrame(loop);
+  }
+
+  function clearBoard() {
+    active.clear();
+    holes.forEach(h => { while (h.firstChild) h.firstChild.remove(); });
+  }
+
+  function start() {
+    if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) {} }
+    if (ac && ac.state === 'suspended') ac.resume();
+    clearBoard(); setScore(0); hits = 0; badHits = 0; hud(GAME_MS);
+    $('startOv').hidden = true; $('resultOv').hidden = true;
+    state = 'count';
+    const ov = $('countOv'), num = $('countNum');
+    ov.hidden = false;
+    let n = 3;
+    const step = () => {
+      if (n === 0) {
+        ov.hidden = true; sfx.go();
+        state = 'play';
+        startT = performance.now(); nextSpawn = startT;
+        requestAnimationFrame(loop);
+        return;
+      }
+      num.textContent = n; num.style.animation = 'none'; void num.offsetWidth; num.style.animation = '';
+      sfx.tick(); n--;
+      setTimeout(step, 700);
+    };
+    step();
+  }
+
+  function comment(s) {
+    if (s < 100) return '…まぁ、穴400個だし？ 次はもうちょっと本気出してよね。';
+    if (s < 250) return 'へぇ、悪くないじゃん。僕ほどじゃないけど。';
+    if (s < 400) return 'ちょっと、やるね。…今のはちゃんと褒めてるから。';
+    return 'うそでしょ…すご。ちょっとだけ尊敬した。ちょっとだけね。';
+  }
+
+  function finish() {
+    state = 'over'; sfx.end();
+    for (const i of [...active.keys()]) hide(i);
+    let best = 0;
+    try { best = +localStorage.getItem(BEST_KEY) || 0; } catch (_) {}
+    const isNew = score > best;
+    if (isNew) { best = score; try { localStorage.setItem(BEST_KEY, best); } catch (_) {} }
+    $('finalScore').textContent = score;
+    $('rHits').textContent = hits;
+    $('rBad').textContent = badHits;
+    $('best').textContent = isNew && score > 0 ? '自己ベスト更新！' : 'ベスト ' + best;
+    $('comment').textContent = comment(score);
+    $('resultOv').hidden = false;
+    $('againBtn').focus();
+  }
+
+  $('startBtn').addEventListener('click', start);
+  $('againBtn').addEventListener('click', start);
+  document.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ' ') && (state === 'idle' || state === 'over')) {
+      e.preventDefault(); start();
+    }
+  });
+  state = 'idle';
+  $('startBtn').focus();
+})();
+</script>
+</body>
+</html>
